@@ -1,0 +1,6 @@
+{
+  "name": "SportMatch",
+  "description": "Find Your Rival. Improve Your Game. The premium next-generation sports social network combining matchmaking, communities, tournaments, rankings, and stats.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,192 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Global Safety Net - default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- 3. Primitive definitions & helper functions ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && (request.auth.token.email_verified == true || request.auth.token.firebase.sign_in_provider == 'google.com');
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Entity Validation Blueprints ---
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'username', 'email', 'avatar_url', 'city', 'main_sport', 'skill_level', 'rank_tier', 'reputation_score', 'privacy_mode', 'created_at'])
+        && data.keys().size() == 12
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 128
+        && data.username is string && data.username.size() <= 128
+        && data.email is string && data.email.size() <= 128
+        && data.avatar_url is string && data.avatar_url.size() <= 500
+        && data.city is string && data.city.size() <= 128
+        && data.main_sport is string && data.main_sport.size() <= 128
+        && data.skill_level is string && data.skill_level.size() <= 64
+        && data.rank_tier is string && data.rank_tier.size() <= 64
+        && data.reputation_score is number
+        && data.privacy_mode is string && data.privacy_mode.size() <= 64
+        && data.created_at is string && data.created_at.size() <= 64;
+    }
+
+    function isValidMatch(data) {
+      return data.keys().hasAll(['id', 'challenger_id', 'opponent_id', 'sport_id', 'status', 'scheduled_at', 'location', 'created_at'])
+        && data.keys().size() >= 8 && data.keys().size() <= 9
+        && data.id is string && data.id.size() <= 128
+        && data.challenger_id is string && data.challenger_id.size() <= 128
+        && data.opponent_id is string && data.opponent_id.size() <= 128
+        && data.sport_id is string && data.sport_id.size() <= 128
+        && data.status is string && data.status.size() <= 64
+        && data.scheduled_at is string && data.scheduled_at.size() <= 128
+        && data.location is string && data.location.size() <= 256
+        && data.created_at is string && data.created_at.size() <= 64
+        && (!data.keys().hasAll(['result']) || data.result is string);
+    }
+
+    function isValidPost(data) {
+      return data.keys().hasAll(['id', 'user_id', 'content', 'sport_id', 'likes_count', 'comments_count', 'created_at'])
+        && data.keys().size() >= 7 && data.keys().size() <= 8
+        && data.id is string && data.id.size() <= 128
+        && data.user_id is string && data.user_id.size() <= 128
+        && data.content is string && data.content.size() <= 5000
+        && data.sport_id is string && data.sport_id.size() <= 128
+        && data.likes_count is number
+        && data.comments_count is number
+        && data.created_at is string && data.created_at.size() <= 64
+        && (!data.keys().hasAll(['image_url']) || data.image_url is string);
+    }
+
+    function isValidCommunity(data) {
+      return data.keys().hasAll(['id', 'name', 'description', 'sport_id', 'city', 'member_count', 'image_url', 'created_at'])
+        && data.keys().size() == 8
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 256
+        && data.description is string && data.description.size() <= 2000
+        && data.sport_id is string && data.sport_id.size() <= 128
+        && data.city is string && data.city.size() <= 128
+        && data.member_count is number
+        && data.image_url is string && data.image_url.size() <= 500
+        && data.created_at is string && data.created_at.size() <= 64;
+    }
+
+    function isValidTournament(data) {
+      return data.keys().hasAll(['id', 'name', 'sport_id', 'city', 'start_date', 'end_date', 'max_participants', 'current_participants', 'status', 'prize', 'created_at'])
+        && data.keys().size() >= 11 && data.keys().size() <= 12
+        && data.id is string && data.id.size() <= 128
+        && data.name is string && data.name.size() <= 256
+        && data.sport_id is string && data.sport_id.size() <= 128
+        && data.city is string && data.city.size() <= 128
+        && data.start_date is string && data.start_date.size() <= 64
+        && data.end_date is string && data.end_date.size() <= 64
+        && data.max_participants is number
+        && data.current_participants is number
+        && data.status is string && data.status.size() <= 64
+        && data.prize is string && data.prize.size() <= 256
+        && data.created_at is string && data.created_at.size() <= 64;
+    }
+
+    function isValidProgressEntry(data) {
+      return data.keys().hasAll(['id', 'user_id', 'sport_id', 'activity_type', 'duration_minutes', 'performance_score', 'notes', 'created_at'])
+        && data.keys().size() == 8
+        && data.id is string && data.id.size() <= 128
+        && data.user_id is string && data.user_id.size() <= 128
+        && data.sport_id is string && data.sport_id.size() <= 128
+        && data.activity_type is string && data.activity_type.size() <= 128
+        && data.duration_minutes is number
+        && data.performance_score is number
+        && data.notes is string && data.notes.size() <= 2000
+        && data.created_at is string && data.created_at.size() <= 64;
+    }
+
+    // --- Rules for collections ---
+
+    // 1. Users Collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId);
+      allow list: if isSignedIn();
+      allow create: if isOwner(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidUser(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'username', 'avatar_url', 'city', 'bio', 'main_sport', 'skill_level', 'rank_tier', 'privacy_mode', 'reputation_score'])
+      );
+      allow delete: if isOwner(userId);
+    }
+
+    // 2. Matches Collection
+    match /matches/{matchId} {
+      allow get: if isSignedIn() && isValidId(matchId) && (isOwner(existing().challenger_id) || isOwner(existing().opponent_id));
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(incoming().challenger_id) && isValidMatch(incoming());
+      allow update: if isSignedIn() && (isOwner(existing().challenger_id) || isOwner(existing().opponent_id)) && isValidMatch(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'result', 'scheduled_at', 'location'])
+      );
+      allow delete: if isSignedIn() && isOwner(existing().challenger_id);
+    }
+
+    // 3. Posts Collection
+    match /posts/{postId} {
+      allow get: if isSignedIn() && isValidId(postId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(incoming().user_id) && isValidPost(incoming());
+      allow update: if isSignedIn() && isValidPost(incoming()) && (
+        isOwner(existing().user_id) || 
+        incoming().diff(existing()).affectedKeys().hasOnly(['likes_count', 'comments_count'])
+      );
+      allow delete: if isSignedIn() && isOwner(existing().user_id);
+    }
+
+    // 4. Communities Collection
+    match /communities/{communityId} {
+      allow get: if isSignedIn() && isValidId(communityId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidCommunity(incoming());
+      allow update: if isSignedIn() && isValidCommunity(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['member_count'])
+      );
+      allow delete: if false;
+    }
+
+    // 5. Tournaments Collection
+    match /tournaments/{tournamentId} {
+      allow get: if isSignedIn() && isValidId(tournamentId);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isValidTournament(incoming());
+      allow update: if isSignedIn() && isValidTournament(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['current_participants'])
+      );
+      allow delete: if false;
+    }
+
+    // 6. Progress Entries Collection
+    match /progressEntries/{progressEntryId} {
+      allow get: if isSignedIn() && isValidId(progressEntryId) && isOwner(existing().user_id);
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(incoming().user_id) && isValidProgressEntry(incoming());
+      allow update: if isSignedIn() && isOwner(existing().user_id) && isValidProgressEntry(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['sport_id', 'activity_type', 'duration_minutes', 'performance_score', 'notes'])
+      );
+      allow delete: if isSignedIn() && isOwner(existing().user_id);
+    }
+  }
+}

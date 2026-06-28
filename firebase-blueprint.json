@@ -1,0 +1,136 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Athlete profile details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "username": { "type": "string" },
+        "email": { "type": "string" },
+        "avatar_url": { "type": "string" },
+        "city": { "type": "string" },
+        "bio": { "type": "string" },
+        "main_sport": { "type": "string" },
+        "skill_level": { "type": "string" },
+        "rank_tier": { "type": "string" },
+        "reputation_score": { "type": "number" },
+        "privacy_mode": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "name", "username", "email", "avatar_url", "city", "main_sport", "skill_level", "rank_tier", "reputation_score", "privacy_mode", "created_at"]
+    },
+    "Match": {
+      "title": "Match",
+      "description": "Sparring match details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "challenger_id": { "type": "string" },
+        "opponent_id": { "type": "string" },
+        "sport_id": { "type": "string" },
+        "status": { "type": "string" },
+        "scheduled_at": { "type": "string" },
+        "location": { "type": "string" },
+        "result": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "challenger_id", "opponent_id", "sport_id", "status", "scheduled_at", "location", "created_at"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "Social feed post",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "content": { "type": "string" },
+        "sport_id": { "type": "string" },
+        "image_url": { "type": "string" },
+        "likes_count": { "type": "number" },
+        "comments_count": { "type": "number" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "user_id", "content", "sport_id", "likes_count", "comments_count", "created_at"]
+    },
+    "Community": {
+      "title": "Community",
+      "description": "Sport community group",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "sport_id": { "type": "string" },
+        "city": { "type": "string" },
+        "member_count": { "type": "number" },
+        "image_url": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "name", "description", "sport_id", "city", "member_count", "image_url", "created_at"]
+    },
+    "Tournament": {
+      "title": "Tournament",
+      "description": "Sport tournament details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "sport_id": { "type": "string" },
+        "city": { "type": "string" },
+        "start_date": { "type": "string" },
+        "end_date": { "type": "string" },
+        "max_participants": { "type": "number" },
+        "current_participants": { "type": "number" },
+        "status": { "type": "string" },
+        "prize": { "type": "string" },
+        "bracket_preview": { "type": "array" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "name", "sport_id", "city", "start_date", "end_date", "max_participants", "current_participants", "status", "prize", "created_at"]
+    },
+    "ProgressEntry": {
+      "title": "ProgressEntry",
+      "description": "Athlete's personal training and activity progression log",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "user_id": { "type": "string" },
+        "sport_id": { "type": "string" },
+        "activity_type": { "type": "string" },
+        "duration_minutes": { "type": "number" },
+        "performance_score": { "type": "number" },
+        "notes": { "type": "string" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "user_id", "sport_id", "activity_type", "duration_minutes", "performance_score", "notes", "created_at"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Athlete profile records"
+    },
+    "/matches/{matchId}": {
+      "schema": "Match",
+      "description": "Sparring matches between athletes"
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Athlete social feed posts"
+    },
+    "/communities/{communityId}": {
+      "schema": "Community",
+      "description": "Sport community groups"
+    },
+    "/tournaments/{tournamentId}": {
+      "schema": "Tournament",
+      "description": "Sports tournaments and brackets"
+    },
+    "/progressEntries/{progressEntryId}": {
+      "schema": "ProgressEntry",
+      "description": "Athlete progress entries"
+    }
+  }
+}
