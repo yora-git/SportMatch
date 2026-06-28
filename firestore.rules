@@ -36,7 +36,7 @@ service cloud.firestore {
 
     function isValidUser(data) {
       return data.keys().hasAll(['id', 'name', 'username', 'email', 'avatar_url', 'city', 'main_sport', 'skill_level', 'rank_tier', 'reputation_score', 'privacy_mode', 'created_at'])
-        && data.keys().size() == 12
+        && data.keys().size() >= 12 && data.keys().size() <= 13
         && data.id is string && data.id.size() <= 128
         && data.name is string && data.name.size() <= 128
         && data.username is string && data.username.size() <= 128
@@ -48,7 +48,8 @@ service cloud.firestore {
         && data.rank_tier is string && data.rank_tier.size() <= 64
         && data.reputation_score is number
         && data.privacy_mode is string && data.privacy_mode.size() <= 64
-        && data.created_at is string && data.created_at.size() <= 64;
+        && data.created_at is string && data.created_at.size() <= 64
+        && (!data.keys().hasAll(['bio']) || (data.bio is string && data.bio.size() <= 1000));
     }
 
     function isValidMatch(data) {

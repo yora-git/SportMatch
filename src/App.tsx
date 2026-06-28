@@ -49,6 +49,7 @@ export default function App() {
   // Routing Engine State
   const [currentRoute, setCurrentRoute] = useState<string>('landing');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [isDemo, setIsDemo] = useState<boolean>(false);
   const [sessionUser, setSessionUser] = useState<User>(CURRENT_USER);
 
   // Dynamic Data States (allows live interactions)
@@ -74,6 +75,7 @@ export default function App() {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
+        setIsDemo(false);
         try {
           const userDocRef = doc(db, 'users', firebaseUser.uid);
           const userSnapshot = await getDoc(userDocRef);
@@ -114,11 +116,13 @@ export default function App() {
           console.error('Error in auth state change profile query:', error);
         }
       } else {
-        setIsLoggedIn(false);
+        if (!isDemo) {
+          setIsLoggedIn(false);
+        }
       }
     });
     return () => unsubscribe();
-  }, [currentRoute]);
+  }, [currentRoute, isDemo]);
 
   // Seeding helper to pre-populate database for testing
   const seedDatabaseIfEmpty = async () => {
@@ -157,8 +161,8 @@ export default function App() {
 
   // Firestore Real-time Synchronization listeners
   useEffect(() => {
-    if (!isLoggedIn) {
-      // Fallback to static demo data when logged out so landing view looks good
+    if (!isLoggedIn || isDemo) {
+      // Fallback to static demo data when logged out or in demo mode so landing view looks good
       setAthletes(DEMO_USERS);
       setPosts(DEMO_POSTS);
       setMatches(DEMO_MATCHES);
@@ -175,7 +179,13 @@ export default function App() {
       snapshot.forEach((doc) => {
         list.push(doc.data() as User);
       });
-      if (list.length > 0) setAthletes(list);
+      const merged = [...list];
+      DEMO_USERS.forEach(demoUser => {
+        if (!merged.some(u => u.id === demoUser.id)) {
+          merged.push(demoUser);
+        }
+      });
+      setAthletes(merged);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'users'));
 
     const unsubscribePosts = onSnapshot(collection(db, 'posts'), (snapshot) => {
@@ -183,8 +193,14 @@ export default function App() {
       snapshot.forEach((doc) => {
         list.push(doc.data() as Post);
       });
-      list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      if (list.length > 0) setPosts(list);
+      const merged = [...list];
+      DEMO_POSTS.forEach(demoPost => {
+        if (!merged.some(p => p.id === demoPost.id)) {
+          merged.push(demoPost);
+        }
+      });
+      merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setPosts(merged);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'posts'));
 
     const unsubscribeMatches = onSnapshot(collection(db, 'matches'), (snapshot) => {
@@ -192,7 +208,13 @@ export default function App() {
       snapshot.forEach((doc) => {
         list.push(doc.data() as Match);
       });
-      if (list.length > 0) setMatches(list);
+      const merged = [...list];
+      DEMO_MATCHES.forEach(demoMatch => {
+        if (!merged.some(m => m.id === demoMatch.id)) {
+          merged.push(demoMatch);
+        }
+      });
+      setMatches(merged);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'matches'));
 
     const unsubscribeCommunities = onSnapshot(collection(db, 'communities'), (snapshot) => {
@@ -200,7 +222,13 @@ export default function App() {
       snapshot.forEach((doc) => {
         list.push(doc.data() as Community);
       });
-      if (list.length > 0) setCommunities(list);
+      const merged = [...list];
+      DEMO_COMMUNITIES.forEach(demoComm => {
+        if (!merged.some(c => c.id === demoComm.id)) {
+          merged.push(demoComm);
+        }
+      });
+      setCommunities(merged);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'communities'));
 
     const unsubscribeTournaments = onSnapshot(collection(db, 'tournaments'), (snapshot) => {
@@ -208,7 +236,13 @@ export default function App() {
       snapshot.forEach((doc) => {
         list.push(doc.data() as Tournament);
       });
-      if (list.length > 0) setTournaments(list);
+      const merged = [...list];
+      DEMO_TOURNAMENTS.forEach(demoTour => {
+        if (!merged.some(t => t.id === demoTour.id)) {
+          merged.push(demoTour);
+        }
+      });
+      setTournaments(merged);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'tournaments'));
 
     const unsubscribeProgress = onSnapshot(collection(db, 'progressEntries'), (snapshot) => {
@@ -216,8 +250,14 @@ export default function App() {
       snapshot.forEach((doc) => {
         list.push(doc.data() as ProgressEntry);
       });
-      list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      if (list.length > 0) setProgressEntries(list);
+      const merged = [...list];
+      DEMO_PROGRESS.forEach(demoProg => {
+        if (!merged.some(p => p.id === demoProg.id)) {
+          merged.push(demoProg);
+        }
+      });
+      merged.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setProgressEntries(merged);
     }, (error) => handleFirestoreError(error, OperationType.GET, 'progressEntries'));
 
     return () => {
@@ -228,12 +268,13 @@ export default function App() {
       unsubscribeTournaments();
       unsubscribeProgress();
     };
-  }, [isLoggedIn]);
+  }, [isLoggedIn, isDemo]);
 
   // Auth Action handlers
-  const handleLoginSuccess = (user: User) => {
+  const handleLoginSuccess = (user: User, isDemoUser: boolean = false) => {
     setSessionUser(user);
     setProfileViewAthlete(user);
+    setIsDemo(isDemoUser);
     setIsLoggedIn(true);
   };
 
@@ -241,6 +282,7 @@ export default function App() {
     try {
       await signOut(auth);
       setIsLoggedIn(false);
+      setIsDemo(false);
       setCurrentRoute('landing');
     } catch (e) {
       console.error('Logout error:', e);
@@ -249,6 +291,12 @@ export default function App() {
 
   // Profile update handler
   const handleUpdateSettings = async (updatedUser: User) => {
+    if (isDemo) {
+      setSessionUser(updatedUser);
+      setProfileViewAthlete(updatedUser);
+      setAthletes(prev => prev.map(u => u.id === updatedUser.id ? updatedUser : u));
+      return;
+    }
     try {
       await setDoc(doc(db, 'users', updatedUser.id), updatedUser);
       setSessionUser(updatedUser);
@@ -271,6 +319,10 @@ export default function App() {
       comments_count: 0,
       created_at: new Date().toISOString()
     };
+    if (isDemo) {
+      setPosts(prev => [newPost, ...prev]);
+      return;
+    }
     try {
       await setDoc(doc(db, 'posts', newPostId), newPost);
     } catch (error) {
@@ -291,6 +343,10 @@ export default function App() {
       scheduled_at: scheduledTime,
       created_at: new Date().toISOString().split('T')[0]
     };
+    if (isDemo) {
+      setMatches(prev => [...prev, newMatch]);
+      return;
+    }
     try {
       await setDoc(doc(db, 'matches', newMatchId), newMatch);
     } catch (error) {
@@ -300,6 +356,14 @@ export default function App() {
 
   // Match Status update handler (Accept, Decline, Complete scoring)
   const handleMatchStatusChange = async (matchId: string, newStatus: 'Accepted' | 'Declined' | 'Completed') => {
+    if (isDemo) {
+      setMatches(prev => prev.map(m => m.id === matchId ? {
+        ...m,
+        status: newStatus,
+        result: newStatus === 'Completed' ? `${sessionUser.name} won (2 sets to 1)` : m.result
+      } : m));
+      return;
+    }
     try {
       const matchRef = doc(db, 'matches', matchId);
       if (newStatus === 'Completed') {
@@ -318,13 +382,22 @@ export default function App() {
   // Community join handler
   const handleCommunityJoinToggle = async (commId: string) => {
     const isJoined = joinedCommunityIds.includes(commId);
+    const targetComm = communities.find(c => c.id === commId);
+    const newMemberCount = isJoined 
+      ? (targetComm ? Math.max(0, targetComm.member_count - 1) : 0) 
+      : (targetComm ? targetComm.member_count + 1 : 1);
+      
+    if (isDemo) {
+      if (isJoined) {
+        setJoinedCommunityIds(joinedCommunityIds.filter(id => id !== commId));
+      } else {
+        setJoinedCommunityIds([...joinedCommunityIds, commId]);
+      }
+      setCommunities(prev => prev.map(c => c.id === commId ? { ...c, member_count: newMemberCount } : c));
+      return;
+    }
     try {
       const commRef = doc(db, 'communities', commId);
-      const targetComm = communities.find(c => c.id === commId);
-      const newMemberCount = isJoined 
-        ? (targetComm ? Math.max(0, targetComm.member_count - 1) : 0) 
-        : (targetComm ? targetComm.member_count + 1 : 1);
-      
       await updateDoc(commRef, { member_count: newMemberCount });
 
       if (isJoined) {
@@ -340,13 +413,22 @@ export default function App() {
   // Tournament registration handler
   const handleTournamentRegisterToggle = async (tourId: string) => {
     const isReg = registeredTourIds.includes(tourId);
+    const targetTour = tournaments.find(t => t.id === tourId);
+    const newParticipantsCount = isReg 
+      ? (targetTour ? Math.max(0, targetTour.current_participants - 1) : 0) 
+      : (targetTour ? targetTour.current_participants + 1 : 1);
+
+    if (isDemo) {
+      if (isReg) {
+        setRegisteredTourIds(registeredTourIds.filter(id => id !== tourId));
+      } else {
+        setRegisteredTourIds([...registeredTourIds, tourId]);
+      }
+      setTournaments(prev => prev.map(t => t.id === tourId ? { ...t, current_participants: newParticipantsCount } : t));
+      return;
+    }
     try {
       const tourRef = doc(db, 'tournaments', tourId);
-      const targetTour = tournaments.find(t => t.id === tourId);
-      const newParticipantsCount = isReg 
-        ? (targetTour ? Math.max(0, targetTour.current_participants - 1) : 0) 
-        : (targetTour ? targetTour.current_participants + 1 : 1);
-
       await updateDoc(tourRef, { current_participants: newParticipantsCount });
 
       if (isReg) {
@@ -372,6 +454,10 @@ export default function App() {
       notes,
       created_at: new Date().toISOString().split('T')[0]
     };
+    if (isDemo) {
+      setProgressEntries(prev => [newEntry, ...prev]);
+      return;
+    }
     try {
       await setDoc(doc(db, 'progressEntries', newEntryId), newEntry);
     } catch (error) {
